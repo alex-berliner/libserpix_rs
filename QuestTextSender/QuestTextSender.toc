@@ -5,7 +5,5 @@
 ## Notes:
 ## SavedVariables:
 
-libs\LibSerpix\cbor.lua
-libs\LibSerpix\util.lua
-libs\LibSerpix\LibSerpix.lua
+Libs\LibSerpix\LibSerpix.xml
 QuestTextSender.lua
