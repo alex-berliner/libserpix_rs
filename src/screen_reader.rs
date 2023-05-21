@@ -12,20 +12,6 @@ use crate::*;
 static CAPTURE_MAX_W: u32 = 900;
 static CAPTURE_MAX_H: u32 = 8;
 
-fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
-    let r = pixel[0] as u32;
-    let g = pixel[1] as u32;
-    let b = pixel[2] as u32;
-    r * 256 * 256 + g * 256 + b
-}
-
-fn decode_header(header: u32) -> (u16, u8) {
-    let checksum = (header & 0xFF) as u8;
-    let size = ((header >> 8) & 0xFFFF) as u16;
-
-    (size, checksum)
-}
-
 struct Frame {
     size: u16,
     pixels: Vec<u8>,
@@ -132,7 +118,21 @@ impl Frame {
     }
 }
 
-fn get_screen(hwnd: isize, w: u32, h: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+fn color_to_integer(pixel: &Rgba<u8>) -> u32 {
+    let r = pixel[0] as u32;
+    let g = pixel[1] as u32;
+    let b = pixel[2] as u32;
+    r * 256 * 256 + g * 256 + b
+}
+
+fn decode_header(header: u32) -> (u16, u8) {
+    let checksum = (header & 0xFF) as u8;
+    let size = ((header >> 8) & 0xFFFF) as u16;
+
+    (size, checksum)
+}
+
+fn get_screen(hwnd: isize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let buf = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).unwrap();
     let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
         ImageBuffer::from_raw(buf.width, buf.height, buf.pixels).unwrap();
@@ -200,7 +200,7 @@ pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
         _ => {},
     }
 
-    let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H+1 as u32);
+    let s = get_screen(hwnd);
     let tx_clone = tx.clone();
     tokio::spawn(async move {
         screen_proc(s, tx_clone).await;
@@ -349,11 +349,5 @@ mod tests {
         let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
         let f = Frame::new(img).unwrap();
     }
-
-    // #[tokio::test]
-    // async fn test_frame_get_payload_pixels_failure() {
-    //     let img = image::open("assets/failing_on_live.bmp").unwrap().into_rgba8();
-    //     println!("{}", Frame::get_payload_pixels(&img).unwrap_err());
-    // }
 }
 
