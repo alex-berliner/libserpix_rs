@@ -1,9 +1,0 @@
-## Interface: 100002
-## Version: 10.0.7
-## Title: QuestTextSender
-## Author: Monorail
-## Notes:
-## SavedVariables:
-
-Libs\LibSerpix\LibSerpix.xml
-QuestTextSender.lua

@@ -7,7 +7,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
 use tokio::task;
 use tokio::sync::mpsc::Sender;
-use std::time::Instant;
 use crate::*;
 
 static CAPTURE_MAX_W: u32 = 900;
@@ -25,38 +24,6 @@ fn decode_header(header: u32) -> (u16, u8) {
     let size = ((header >> 8) & 0xFFFF) as u16;
 
     (size, checksum)
-}
-
-// validate one pixel
-fn pixel_validate_get(img: &ImageBuffer<Rgba<u8>, Vec<u8>>, x: u32, height: u32)
-                                            -> Result<Rgba<u8>, &'static str> {
-    let pixels = (0..height)
-        .filter_map(|y| Some(img.get_pixel(x, y as u32)))
-        .collect::<Vec<_>>();
-
-    let pixel_counts =
-        pixels.iter().fold(std::collections::HashMap::new(), |mut acc, &x| {
-        *acc.entry(x).or_insert(0) += 1;
-        acc
-    });
-
-    let (most_common_pixel, most_common_count) = pixel_counts.iter()
-        .max_by_key(|&(_, count)| count)
-        .map(|(pixel, count)| (*pixel, *count))
-        .unwrap();
-
-    if most_common_count >= 3 {
-        Ok(*most_common_pixel)
-    } else {
-        Err("Not at least 3 pixels are the same")
-    }
-}
-
-fn dump(a: &Vec<u8>) {
-    for b in a.iter() {
-        print!("{:#02X} ", b);
-    }
-    eprintln!("\n{} bytes summed", a.len());
 }
 
 struct Frame {
@@ -102,7 +69,7 @@ impl Frame {
     }
 
     fn get_payload_pixels(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Result<Vec<Rgba<u8>>, &'static str> {
-        let loc = match find_key_start(&img, [42, 0, 69]) {
+        let loc = match find_anchor(&img, [42, 0, 69]) {
             None => {
                 println!("No key start");
                 Frame::save(&img);
@@ -136,7 +103,7 @@ impl Frame {
                 None
             }
         }).collect();
-        let rx_header_pixel = match pixel_validate_get2(&pixels_vec[0]){
+        let rx_header_pixel = match column_to_pixel(&pixels_vec[0]){
              Err(e) => { return Err("Invalid header_pixel column"); }
              Ok(v) => v,
         };
@@ -145,7 +112,7 @@ impl Frame {
             return Err("rx_header_pixel was not 42069!");
         }
         let pixels = (0..pixels_vec.len()).map(|x| {
-            pixel_validate_get2(&pixels_vec[x])
+            column_to_pixel(&pixels_vec[x])
         } ).collect::<Result<Vec<_>, _>>();
         pixels
     }
@@ -191,7 +158,10 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
     Ok(serde_json::from_str(&c2j.to_string()).unwrap())
 }
 
-async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
+/*
+process an ImageBuffer s containing a message and send it over tx as JSON
+*/
+pub async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
     let x = s.clone();
     let frame = match Frame::new(s) {
         Ok(v) => v,
@@ -217,33 +187,30 @@ async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::V
     }
 }
 
+/*
+Capture a message from a screenshot in the window handle hwnd and send it over tx as JSON
+*/
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
-    let alpha = 0.1;
-    let mut avg_duration : f64 = 0.0;
-    loop {
-        match hwnd_exists(hwnd) {
-            WindowStatus::Destroyed => break,
-            WindowStatus::Minimized => {
-                thread::sleep(Duration::from_millis(1));
-                continue;
-            },
-            _ => {},
-        }
-
-        let start = Instant::now();
-        let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H+1 as u32);
-        let tx_clone = tx.clone();
-        tokio::spawn(async move {
-            screen_proc(s, tx_clone).await;
-        });
-        let duration = start.elapsed().as_secs_f64();
-        avg_duration = alpha * duration + (1.0 - alpha) * avg_duration;
-        // eprintln!("{:?}", avg_duration);
-        // return;
+    match hwnd_exists(hwnd) {
+        WindowStatus::Destroyed => return,
+        WindowStatus::Minimized => {
+            thread::sleep(Duration::from_millis(1));
+            return;
+        },
+        _ => {},
     }
+
+    let s = get_screen(hwnd, CAPTURE_MAX_W, CAPTURE_MAX_H+1 as u32);
+    let tx_clone = tx.clone();
+    tokio::spawn(async move {
+        screen_proc(s, tx_clone).await;
+    });
 }
 
-fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Option<(u32, u32)> {
+/*
+Find the (x, y) coord of the anchor, which is the first column of the message
+*/
+fn find_anchor(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Option<(u32, u32)> {
     let (width, height) = buffer.dimensions();
 
     for y in 0..height {
@@ -258,7 +225,12 @@ fn find_key_start(buffer: &ImageBuffer<Rgba<u8>, Vec<u8>>, color: [u8; 3]) -> Op
     None
 }
 
-fn pixel_validate_get2(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str> {
+/*
+Determine the color value of a column of pixels
+Each pixel in a message is drawn as a column instead of a 1x1 pixel to account
+for WoW UI wonkiness so this collapses the column into a single value
+*/
+fn column_to_pixel(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str> {
     if pixels.len() < 1 {
         return Err("pixels array empty");
     }
@@ -289,13 +261,13 @@ mod tests {
     #[tokio::test]
     async fn find_key_start_test() {
         let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
-        assert_eq!(Some((9,38)), find_key_start(&img, [42,0,69]));
+        assert_eq!(Some((9,38)), find_anchor(&img, [42,0,69]));
     }
 
     #[tokio::test]
     async fn test_frame_from_imgbuf2_success() {
         let img = image::open("assets/windowed_valid_header.bmp").unwrap().into_rgba8();
-        let loc = match find_key_start(&img, [42, 0, 69]) {
+        let loc = match find_anchor(&img, [42, 0, 69]) {
             None => { println!("No key start"); return; },
             Some(v) => v,
         };
@@ -315,7 +287,7 @@ mod tests {
             ).collect();
 
         let pixels = (0..pixels_vec.len()).map(|x|
-            pixel_validate_get2(&pixels_vec[x])
+            column_to_pixel(&pixels_vec[x])
         ).collect::<Result<Vec<_>, _>>();
 
         let pixels = match pixels {
@@ -335,7 +307,7 @@ mod tests {
     #[tokio::test]
     async fn test_frame_from_imgbuf2_failure() {
         let img = image::open("assets/windowed_invalid_header.bmp").unwrap().into_rgba8();
-        let loc = match find_key_start(&img, [42, 0, 69]) {
+        let loc = match find_anchor(&img, [42, 0, 69]) {
             None => { println!("No key start"); return; },
             Some(v) => v,
         };
@@ -355,7 +327,7 @@ mod tests {
             ).collect();
 
         let pixels = (0..pixels_vec.len()).map(|x|
-            pixel_validate_get2(&pixels_vec[x])
+            column_to_pixel(&pixels_vec[x])
         ).collect::<Result<Vec<_>, _>>();
 
         let pixels = match pixels {
