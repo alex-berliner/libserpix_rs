@@ -43,6 +43,3 @@ async fn main() {
     }
 }
 ```
-
-### WoW TTS
-Included in this repo is a sample python program that captures the output produced by the example application and uses gTTS to perform real-time text-to-speech. Compile with `cargo build --release --bin wow`, place `target\release\wow.exe` in tts/, then run `python .\parser.py`.
