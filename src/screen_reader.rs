@@ -1,18 +1,16 @@
-use image::GenericImageView;
 use cbor::Decoder;
 use image::{imageops::crop_imm, ImageBuffer, Rgba};
 use rustc_serialize::json::ToJson;
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
-use tokio::task;
 use tokio::sync::mpsc::Sender;
 use crate::*;
 
-static CAPTURE_MAX_W: u32 = 900;
 static CAPTURE_MAX_H: u32 = 8;
 
 struct Frame {
+    #[allow(dead_code)]
     size: u16,
     pixels: Vec<u8>,
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
@@ -90,7 +88,7 @@ impl Frame {
             }
         }).collect();
         let rx_header_pixel = match column_to_pixel(&pixels_vec[0]){
-             Err(e) => { return Err("Invalid header_pixel column"); }
+             Err(e) => { eprintln!("{}", e); return Err("Invalid header_pixel column"); }
              Ok(v) => v,
         };
         if rx_header_pixel != header_pixel {
@@ -255,8 +253,8 @@ fn column_to_pixel(pixels: &Vec<Rgba<u8>>) -> Result<Rgba<u8>, &'static str> {
 
 
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
-    use image::GenericImageView;
 
     #[tokio::test]
     async fn find_key_start_test() {
@@ -350,4 +348,3 @@ mod tests {
         let f = Frame::new(img).unwrap();
     }
 }
-

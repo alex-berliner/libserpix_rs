@@ -23,6 +23,3 @@ windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32
 
 [profile.dev.package.win-screenshot]
 opt-level = 3
-
-[profile.dev.package.tts]
-opt-level = 3
