@@ -13,6 +13,7 @@ struct Frame {
     #[allow(dead_code)]
     size: u16,
     pixels: Vec<u8>,
+    #[allow(dead_code)]
     img: ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
@@ -42,7 +43,7 @@ impl Frame {
         let checksum_calc = pixels.iter().fold(0, |acc, x| (acc + *x as u32)%256) as u8;
         if checksum_rx != checksum_calc {
             eprintln!("Checksum mismatch {} {}", checksum_rx, checksum_calc);
-            Frame::save(&img);
+            // Frame::save(&img);
             return Err("Checksum mismatch");
         }
         Ok(Frame {
@@ -56,8 +57,8 @@ impl Frame {
         let loc = match find_anchor(&img, [42, 0, 69]) {
             None => {
                 println!("No key start");
-                Frame::save(&img);
-                return Err("MAKE ERROR HERE");
+                // Frame::save(&img);
+                return Err("No key start");
             },
             Some(v) => v,
         };
@@ -92,7 +93,7 @@ impl Frame {
              Ok(v) => v,
         };
         if rx_header_pixel != header_pixel {
-            Frame::save(&img);
+            // Frame::save(&img);
             return Err("rx_header_pixel was not 42069!");
         }
         let pixels = (0..pixels_vec.len()).map(|x| {
@@ -160,16 +161,20 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
 process an ImageBuffer s containing a message and send it over tx as JSON
 */
 pub async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
-    let x = s.clone();
+    // let x = s.clone();
     let frame = match Frame::new(s) {
         Ok(v) => v,
-        Err(e) => { eprintln!("frame decode error {}", e); Frame::save(&x); return; },
+        Err(e) => {
+            eprintln!("frame decode error {}", e);
+            // Frame::save(&x);
+            return;
+        },
     };
 
     let mut value: serde_json::Value = match cbor_parse(&frame.pixels) {
         Ok(v) => v,
         Err(e) => {
-            Frame::save(&frame.img);
+            // Frame::save(&frame.img);
             eprintln!("{}", e);
             return;
         }
