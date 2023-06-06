@@ -1,7 +1,12 @@
 [package]
 name = "libserpix_rs"
-version = "0.1.0"
+version = "0.5.0"
 edition = "2021"
+license = "MIT"
+description = "Real-time data transmission out of World of Warcraft via encoding data into pixels"
+homepage = "https://github.com/alex-berliner/libserpix_rs"
+repository = "https://github.com/alex-berliner/libserpix_rs"
+readme = "README.md"
 
 [lib]
 name = "libserpix_rs"
