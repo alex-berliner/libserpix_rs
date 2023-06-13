@@ -131,6 +131,7 @@ fn decode_header(header: u32) -> (u16, u8) {
     (size, checksum)
 }
 
+#[cfg(target_os = "windows")]
 fn get_screen(hwnd: isize) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let buf = win_screenshot::capture::capture_window(hwnd, win_screenshot::capture::Area::Full).unwrap();
     let img: ImageBuffer<Rgba<u8>, Vec<u8>> =
@@ -160,6 +161,7 @@ fn cbor_parse(b: &Vec<u8>) -> Result<serde_json::Value, &'static str> {
 /*
 process an ImageBuffer s containing a message and send it over tx as JSON
 */
+#[cfg(target_os = "windows")]
 pub async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_json::Value>) {
     // let x = s.clone();
     let frame = match Frame::new(s) {
@@ -193,6 +195,7 @@ pub async fn screen_proc(s: ImageBuffer<Rgba<u8>, Vec<u8>>, tx: Sender<serde_jso
 /*
 Capture a message from a screenshot in the window handle hwnd and send it over tx as JSON
 */
+#[cfg(target_os = "windows")]
 pub async fn read_wow(hwnd: isize, tx: Sender<serde_json::Value>) {
     match hwnd_exists(hwnd) {
         WindowStatus::Destroyed => return,

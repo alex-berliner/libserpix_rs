@@ -1,4 +1,6 @@
+#[cfg(target_os = "windows")]
 use winapi::shared::windef::HWND;
+#[cfg(target_os = "windows")]
 use winapi::um::winuser::{IsIconic, IsWindowVisible, IsWindow};
 
 pub enum WindowStatus{
@@ -6,7 +8,7 @@ pub enum WindowStatus{
     Destroyed,
     Minimized,
 }
-
+#[cfg(target_os = "windows")]
 pub fn hwnd_exists(hwnd: isize) -> WindowStatus {
     let hwnd = hwnd as HWND;
 
