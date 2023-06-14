@@ -1,6 +1,6 @@
 [package]
 name = "libserpix_rs"
-version = "0.5.0"
+version = "0.5.3"
 edition = "2021"
 license = "MIT"
 description = "Real-time data transmission out of World of Warcraft via encoding data into pixels"
@@ -22,9 +22,11 @@ image = "0.24"
 rustc-serialize = "0.3.24"
 serde_json = "1.0.94"
 tokio = {version = "1.23.0", features = ["full"]}
-win-screenshot = { version = "3.0.1", optional = true, features = ["windows-only"] }
-winapi = { version = "0.3", features = ["winuser", "windows-only"], optional = true }
-windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps", "windows-only"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+win-screenshot = { version = "3.0.1"}
+winapi = { version = "0.3", features = ["winuser"]}
+windows = { version = "0.37", features = ["Win32_UI_WindowsAndMessaging", "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Storage_Xps"]}
 
 [profile.dev.package.win-screenshot]
 opt-level = 3

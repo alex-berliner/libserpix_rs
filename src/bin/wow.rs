@@ -1,6 +1,13 @@
 use tokio::sync::mpsc::{channel, error};
 use libserpix_rs::*;
 
+#[cfg(target_os = "linux")]
+#[tokio::main]
+async fn main() {
+
+}
+
+#[cfg(target_os = "windows")]
 #[tokio::main]
 async fn main() {
     let (tx, mut rx) = channel(100);
